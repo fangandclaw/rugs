@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use axum::{
+    body::Body,
     http::{self, Request, StatusCode},
     middleware::{self, Next},
     response::IntoResponse,
@@ -8,6 +9,7 @@ use axum::{
 };
 use base64::prelude::*;
 use clap::Parser;
+use hyper::HeaderMap;
 use sqlx::SqlitePool;
 use tokio::sync::RwLock;
 use tower::ServiceBuilder;
@@ -99,6 +101,11 @@ async fn auth<B>(req: Request<B>, next: Next<B>, required_auth: String) -> impl 
 /// Just returns a 200.
 pub async fn health() {}
 
+/// Return header info
+pub async fn login(request: Request<Body>) -> HeaderMap {
+    request.headers().to_owned()
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let (exit_tx, exit_rx) = tokio::sync::oneshot::channel::<()>();
@@ -158,7 +165,8 @@ fn app(config: Config, pool: SqlitePool) -> Router {
         &config.request_root,
         Router::new()
             .nest("/api", Router::new().merge(user_routes).merge(ci_routes))
-            .route("/health", get(health)),
+            .route("/health", get(health))
+            .route("/login", get(login)),
     );
 
     // We expose the basic `health` endpoint under both `/health` and `/<request_root>/health` if the
